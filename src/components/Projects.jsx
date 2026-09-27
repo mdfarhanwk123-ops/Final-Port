@@ -1,16 +1,9 @@
 import { useEffect, useState } from "react";
 import SectionTitle from "./SectionTitle";
-import { getProjects } from "../services/portfolioService";
+import { projects } from "../data/projectsData";
 
 function Projects() {
-  const [projects, setProjects] = useState([]);
   const [active, setActive] = useState(null);
-
-  useEffect(() => {
-    getProjects()
-      .then((data) => setProjects(data))
-      .catch(() => {});
-  }, []);
 
   /* Lock scroll when modal opens */
   useEffect(() => {
@@ -33,11 +26,8 @@ function Projects() {
 
         <div className="projects-grid">
           {projects.map((p, i) => (
-            <article
-              className="project-card"
-              key={p.id || i}
-            >
-              <div className="project-number">0{i + 1}</div>
+            <article className="project-card" key={p.id || i}>
+              <div className="project-number">{String(i + 1).padStart(2, "0")}</div>
 
               <div className="project-top">
                 <span className="project-category">{p.category}</span>
@@ -51,7 +41,7 @@ function Projects() {
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && setActive(p)}
                 >
-                  <img src={p.image} alt={p.title} />
+                  <img src={p.image} alt={p.title} loading="lazy" />
                   <div className="project-image-overlay">
                     <span>VIEW DESIGN →</span>
                   </div>
@@ -63,9 +53,7 @@ function Projects() {
 
               {Array.isArray(p.tools) && p.tools.length > 0 && (
                 <div className="project-tech">
-                  {p.tools.map((t) => (
-                    <span key={t}>{t}</span>
-                  ))}
+                  {p.tools.map((t) => <span key={t}>{t}</span>)}
                 </div>
               )}
 
@@ -76,39 +64,16 @@ function Projects() {
                 >
                   VIEW DETAILS →
                 </button>
-
-                {p.pdfUrl && (
-                  <a
-                    href={p.pdfUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="project-btn project-btn-pdf"
-                  >
-                    VIEW PDF ↗
-                  </a>
-                )}
               </div>
             </article>
           ))}
-
-          {projects.length === 0 && (
-            <p style={{ color: "var(--text-muted)" }}>
-              No projects added yet.
-            </p>
-          )}
         </div>
       </div>
 
-      {/* ── PROJECT MODAL ── */}
       {active && (
         <div className="modal-backdrop" onClick={() => setActive(null)}>
-          <div
-            className="modal project-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="modal-close" onClick={() => setActive(null)}>
-              ×
-            </button>
+          <div className="modal project-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setActive(null)}>×</button>
 
             <div className="project-modal-header">
               <span className="project-modal-num">PROJECT</span>
@@ -126,44 +91,9 @@ function Projects() {
 
             {Array.isArray(active.tools) && active.tools.length > 0 && (
               <div className="project-tech project-modal-tech">
-                {active.tools.map((t) => (
-                  <span key={t}>{t}</span>
-                ))}
+                {active.tools.map((t) => <span key={t}>{t}</span>)}
               </div>
             )}
-
-            <div className="project-modal-links">
-              {active.pdfUrl && (
-                <a
-                  href={active.pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-primary"
-                >
-                  VIEW PDF ↗
-                </a>
-              )}
-              {active.github && (
-                <a
-                  href={active.github}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-outline"
-                >
-                  GITHUB
-                </a>
-              )}
-              {active.live && (
-                <a
-                  href={active.live}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-outline"
-                >
-                  VIEW LIVE
-                </a>
-              )}
-            </div>
           </div>
         </div>
       )}

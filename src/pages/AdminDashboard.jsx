@@ -43,7 +43,6 @@ function AdminDashboard() {
   const [modal, setModal] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [bulkProjectUploading, setBulkProjectUploading] = useState(false);
 
   useEffect(() => {
     const unsub = listenToAuth((u) => {
@@ -152,91 +151,6 @@ function AdminDashboard() {
       alert("Save failed: " + err.message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const compressImageToBase64 = (file, maxBytes = 680 * 1024) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error);
-      reader.onload = () => {
-        const img = new Image();
-        img.onerror = () => reject(new Error(`Could not read image: ${file.name}`));
-        img.onload = () => {
-          const maxDimension = 1800;
-          const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          let quality = 0.82;
-          const make = () => {
-            const dataUrl = canvas.toDataURL("image/jpeg", quality);
-            const approxBytes = Math.ceil((dataUrl.length * 3) / 4);
-            if (approxBytes <= maxBytes || quality <= 0.45) {
-              resolve(dataUrl);
-              return;
-            }
-            quality -= 0.07;
-            make();
-          };
-          make();
-        };
-        img.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-  const titleFromFilename = (filename) => {
-    const base = filename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-    if (!base) return "CAD Design Project";
-    return base.replace(/\b\w/g, (c) => c.toUpperCase());
-  };
-
-  const createAutoProjectDescription = (title, tools) => {
-    const toolText = tools.length ? ` using ${tools.join(", ")}` : " using 3D CAD tools";
-    return `${title} — a mechanical design project focused on 3D CAD modeling, component geometry and engineering design presentation${toolText}.`;
-  };
-
-  const handleBulkProjectUpload = async ({ files, category, tools, startOrder }) => {
-    if (!files?.length) return;
-    setBulkProjectUploading(true);
-    try {
-      const normalizedTools = tools
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      let order = Number.isFinite(Number(startOrder)) ? Number(startOrder) : projects.length;
-      let created = 0;
-
-      for (const file of files) {
-        if (!file.type.startsWith("image/")) continue;
-        const title = titleFromFilename(file.name);
-        const image = await compressImageToBase64(file);
-        await addProject({
-          title,
-          category: category.trim() || "Mechanical Design",
-          description: createAutoProjectDescription(title, normalizedTools),
-          tools: normalizedTools,
-          image,
-          pdfUrl: "",
-          github: "",
-          live: "",
-          order: order++,
-        });
-        created++;
-      }
-
-      await refresh();
-      setModal(null);
-      alert(`✅ ${created} project${created === 1 ? "" : "s"} added successfully.`);
-    } catch (err) {
-      console.error("Bulk project upload failed:", err);
-      alert("❌ Bulk upload failed\n\n" + (err?.message || err));
-    } finally {
-      setBulkProjectUploading(false);
     }
   };
 
@@ -530,61 +444,18 @@ function AdminDashboard() {
 
           {/* ==================== PROJECTS ==================== */}
           {tab === "projects" && (
-            <>
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "18px" }}>
-                <button
-                  className="dashboard-add"
-                  onClick={() =>
-                    setModal({
-                      type: "projects",
-                      data: {
-                        title: "", category: "", description: "",
-                        tools: [], image: "", pdfUrl: "", github: "", live: "",
-                        order: projects.length,
-                      },
-                    })
-                  }
-                >
-                  + ADD NEW
-                </button>
-                <button
-                  className="dashboard-add"
-                  onClick={() =>
-                    setModal({
-                      type: "projects-bulk",
-                      data: {
-                        category: "Mechanical Design",
-                        tools: "Creo, CATIA V5, AutoCAD, SolidWorks",
-                        order: projects.length,
-                        files: [],
-                      },
-                    })
-                  }
-                >
-                  + BULK UPLOAD CAD
-                </button>
-              </div>
-              <div style={{
-                marginBottom: "20px", padding: "14px 16px", border: "1px dashed var(--line)",
-                borderRadius: "10px", color: "var(--muted)", fontSize: "12px", lineHeight: 1.6
-              }}>
-                <strong style={{ color: "var(--ink)" }}>BULK MODE:</strong> Select multiple CAD images.
-                Titles come from filenames, descriptions and tools are generated automatically, and images are compressed for the 700 KB limit.
-                You can edit any project afterward.
-              </div>
-              <ListPanel
-                onAdd={() =>
-                  setModal({
-                    type: "projects",
-                    data: {
-                      title: "", category: "", description: "",
-                      tools: [], image: "", pdfUrl: "", github: "", live: "",
-                      order: projects.length,
-                    },
-                  })
-                }
-                hideAdd
-                items={projects}
+            <ListPanel
+              onAdd={() =>
+                setModal({
+                  type: "projects",
+                  data: {
+                    title: "", category: "", description: "",
+                    tools: [], image: "", pdfUrl: "", github: "", live: "",
+                    order: projects.length,
+                  },
+                })
+              }
+              items={projects}
               onEdit={(item) => setModal({ type: "projects", data: item })}
               onDelete={(id) => handleDelete("projects", id)}
               render={(s) => (
@@ -593,8 +464,7 @@ function AdminDashboard() {
                   <small>{s.category}</small>
                 </>
               )}
-              />
-            </>
+            />
           )}
 
           {/* ==================== CERTIFICATES ==================== */}
@@ -656,14 +526,12 @@ function Card({ n, title, info, onClick }) {
   );
 }
 
-function ListPanel({ onAdd, items, onEdit, onDelete, render, hideAdd = false }) {
+function ListPanel({ onAdd, items, onEdit, onDelete, render }) {
   return (
     <>
-      {!hideAdd && (
-        <button className="dashboard-add" onClick={onAdd}>
-          + ADD NEW
-        </button>
-      )}
+      <button className="dashboard-add" onClick={onAdd}>
+        + ADD NEW
+      </button>
       <div className="dashboard-list">
         {items.map((item) => (
           <div className="dashboard-row" key={item.id}>
@@ -683,67 +551,6 @@ function ListPanel({ onAdd, items, onEdit, onDelete, render, hideAdd = false }) 
         )}
       </div>
     </>
-  );
-}
-
-function BulkProjectsForm({ initial, uploading, onCancel, onUpload }) {
-  const [category, setCategory] = useState(initial.category || "Mechanical Design");
-  const [tools, setTools] = useState(initial.tools || "Creo, CATIA V5, AutoCAD, SolidWorks");
-  const [order, setOrder] = useState(initial.order ?? 0);
-  const [files, setFiles] = useState([]);
-
-  return (
-    <div>
-      <h3>BULK UPLOAD CAD PROJECTS</h3>
-      <div className="form-group">
-        <label>SELECT CAD IMAGES (MULTIPLE)</label>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => setFiles(Array.from(e.target.files || []))}
-        />
-        <small style={{ display: "block", marginTop: 8, color: "var(--muted)" }}>
-          Select all project images at once. Each image becomes one project. Large images are automatically compressed.
-        </small>
-      </div>
-      <Field label="DEFAULT CATEGORY" value={category} onChange={setCategory} />
-      <div className="form-group">
-        <label>DEFAULT TOOLS (COMMA SEPARATED)</label>
-        <input value={tools} onChange={(e) => setTools(e.target.value)} />
-      </div>
-      <Field label="STARTING ORDER" type="number" value={order} onChange={(v) => setOrder(Number(v))} />
-
-      <div style={{
-        marginTop: 12, padding: 14, borderRadius: 10, background: "rgba(0,0,0,.03)",
-        fontSize: 12, lineHeight: 1.65, color: "var(--muted)"
-      }}>
-        <strong style={{ color: "var(--ink)" }}>AUTO-FILL:</strong><br />
-        • Project title = image filename cleaned up<br />
-        • Description = professional CAD project summary<br />
-        • Tools = the default tools above<br />
-        • GitHub / Live URL / PDF = left empty<br />
-        • Order = automatically increments for each image
-      </div>
-
-      {files.length > 0 && (
-        <p style={{ marginTop: 12, fontSize: 13, fontWeight: 700 }}>
-          {files.length} image{files.length === 1 ? "" : "s"} selected
-        </p>
-      )}
-
-      <div className="modal-actions">
-        <button type="button" onClick={onCancel} disabled={uploading}>CANCEL</button>
-        <button
-          type="button"
-          className="primary"
-          disabled={uploading || files.length === 0}
-          onClick={() => onUpload({ files, category, tools, startOrder: order })}
-        >
-          {uploading ? "UPLOADING..." : `ADD ${files.length || ""} PROJECT${files.length === 1 ? "" : "S"}`}
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -869,15 +676,6 @@ function GenericForm({ modal, onSave, onCancel, saving, fileToBase64 }) {
             onChange={(v) => set("order", Number(v))}
           />
         </>
-      )}
-
-      {type === "projects-bulk" && (
-        <BulkProjectsForm
-          initial={form}
-          uploading={bulkProjectUploading}
-          onCancel={onCancel}
-          onUpload={handleBulkProjectUpload}
-        />
       )}
 
       {type === "projects" && (
