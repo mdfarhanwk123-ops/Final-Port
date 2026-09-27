@@ -1,0 +1,11 @@
+@"
+node_modules
+dist
+.env
+.env.local
+.env.production
+*.log
+.vite
+.DS_Store
+src/styles/globals00.css
+"@ | Out-File -Encoding utf8 .gitignore
